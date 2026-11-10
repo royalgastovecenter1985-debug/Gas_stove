@@ -104,7 +104,7 @@ export async function endSession(): Promise<void> {
 
 export async function loginThrottled(ip: string): Promise<boolean> {
   const row = await queryOne<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM login_attempts WHERE ip_address = ? AND attempted_at > (NOW() - INTERVAL ${LOGIN_WINDOW_MIN} MINUTE)`,
+    `SELECT COUNT(*) AS n FROM login_attempts WHERE ip_address = ? AND attempted_at > NOW() - INTERVAL '${LOGIN_WINDOW_MIN} minutes'`,
     [ip],
   );
   return Number(row?.n ?? 0) >= LOGIN_MAX_ATTEMPTS;
@@ -112,5 +112,5 @@ export async function loginThrottled(ip: string): Promise<boolean> {
 
 export async function recordLoginFailure(ip: string): Promise<void> {
   await execute('INSERT INTO login_attempts (ip_address, attempted_at) VALUES (?, NOW())', [ip]);
-  await execute('DELETE FROM login_attempts WHERE attempted_at < (NOW() - INTERVAL 1 DAY)');
+  await execute("DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '1 day'");
 }

@@ -20,7 +20,7 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: SP
 
   const where: string[] = [];
   const args: unknown[] = [];
-  if (q) { where.push('(p.name LIKE ? OR p.slug LIKE ?)'); args.push(likeTerm(q), likeTerm(q)); }
+  if (q) { where.push('(p.name ILIKE ? OR p.slug ILIKE ?)'); args.push(likeTerm(q), likeTerm(q)); }
   if (cat) { where.push('p.category_id = ?'); args.push(cat); }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
 

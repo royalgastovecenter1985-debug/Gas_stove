@@ -1,8 +1,8 @@
 # Royal Gas Stove Center — Next.js website + admin panel
 
 The Next.js 16 (React 19, TypeScript) version of the Royal Gas Stove Center website.
-It uses **the same MySQL/MariaDB database** as the PHP site, so all products, categories, photos,
-certificates, reels, settings and the admin login carry over unchanged.
+It uses a **PostgreSQL database (Neon)**. All products, categories, certificates, reels, settings and the
+admin login were copied over from the PHP site's MySQL database.
 
 - Public site: same design and URLs as the PHP site (`/`, `/products`, `/products/{category}`,
   `/product/{slug}`, `/about`, `/certificates`, `/contact`, `/brochure`, `/sitemap.xml`).
@@ -14,12 +14,12 @@ certificates, reels, settings and the admin login carry over unchanged.
 
 ## 1. Run it on this computer
 
-Requirements: **Node.js 20.9+** and MySQL/MariaDB (XAMPP's MySQL is fine).
+Requirements: **Node.js 20.9+** and a PostgreSQL connection string in `DATABASE_URL` (Neon).
 
 ```bash
 cd C:\xampp\htdocs\royalgasstove\nextjs
 npm install
-copy .env.example .env.local      # then edit DB_* and set SESSION_SECRET
+copy .env.example .env.local      # then set DATABASE_URL and SESSION_SECRET
 npm run dev                       # http://localhost:3000   admin: http://localhost:3000/admin
 ```
 
@@ -29,10 +29,10 @@ Create a `SESSION_SECRET` with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-**New database?** Import `database/schema.sql` first (phpMyAdmin → Import, or
-`mysql -u root < database/schema.sql`). That creates the tables, all 92 products and the admin user
-`admin` / `Admin@123`. **Change the password straight away** in Admin → Website settings.
-If you already use the PHP site's database, there is nothing to import: log in with your existing admin account.
+**New database?** Run `database/schema.postgres.sql` to create the tables (Neon console → SQL Editor).
+To copy data from the old MySQL database (XAMPP must be running, `DB_*` in `.env.local` point at it), run
+`node --env-file=.env.local scripts/migrate-mysql-to-postgres.mjs`. It creates the tables too, and
+replaces every row in PostgreSQL with the MySQL rows. `database/schema.sql` is the old MySQL version, kept for reference.
 
 ---
 
@@ -65,7 +65,7 @@ Next.js needs a **Node.js server**, so plain PHP-only shared hosting can't run i
 
 - **cPanel with “Setup Node.js App”** (many Indian hosts offer this), a **VPS** (Ubuntu + Nginx + PM2),
   or Node platforms such as Railway or Render.
-- The database can stay on the same MySQL server as today.
+- The database is PostgreSQL on Neon; any host just needs `DATABASE_URL`.
 
 ### Build
 
@@ -89,7 +89,7 @@ Build on the same OS type as the server (for example, build on Linux for a Linux
 | Variable | Example | Notes |
 |---|---|---|
 | `APP_URL` | `https://www.yourdomain.com` | Used for canonical/OG links and the sitemap |
-| `DB_HOST` `DB_PORT` `DB_NAME` `DB_USER` `DB_PASS` | | Same database as the PHP site |
+| `DATABASE_URL` | `postgresql://…neon.tech/neondb?sslmode=verify-full` | Neon (pooled) connection string |
 | `SESSION_SECRET` | 64 random hex chars | **Required** for admin login |
 | `UPLOAD_DIR` | `/home/user/rgs-uploads` | **Put it outside the deploy folder** so redeploying never deletes uploaded photos |
 | `PORT` | `3000` | |

@@ -1,36 +1,74 @@
 import 'server-only';
-import mysql, { type Pool, type ResultSetHeader } from 'mysql2/promise';
+import pg from 'pg';
 
 type Row = Record<string, unknown>;
 
-const globalForDb = globalThis as unknown as { __rgsPool?: Pool };
+/** Result of INSERT / UPDATE / DELETE. */
+export type ExecResult = { affectedRows: number };
 
-function createPool(): Pool {
-  const pool = mysql.createPool({
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASS || '',
-    database: process.env.DB_NAME || 'royalgasstove',
-    charset: 'utf8mb4',
-    connectionLimit: 10,
-    dateStrings: true, // keep TIMESTAMPs as 'YYYY-MM-DD HH:MM:SS' strings
-    supportBigNumbers: true,
+// ---- How PostgreSQL values come back to JavaScript ----------------------------
+// COUNT(*) and BIGINT arrive as strings by default; the site expects numbers.
+pg.types.setTypeParser(pg.types.builtins.INT8, (v) => Number(v));
+pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
+// Dates are shown as 'YYYY-MM-DD HH:MM:SS' strings in India time, whatever time zone the server uses.
+const TZ_OFFSET_MIN = parseOffset(process.env.DB_TIMEZONE || '+05:30');
+const toLocalString = (v: string) => {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  return new Date(d.getTime() + TZ_OFFSET_MIN * 60_000).toISOString().slice(0, 19).replace('T', ' ');
+};
+pg.types.setTypeParser(pg.types.builtins.TIMESTAMPTZ, toLocalString);
+pg.types.setTypeParser(pg.types.builtins.TIMESTAMP, (v) => v.slice(0, 19));
+pg.types.setTypeParser(pg.types.builtins.DATE, (v) => v);
+
+function parseOffset(s: string): number {
+  const m = /^([+-])(\d{1,2}):?(\d{2})$/.exec(s.trim());
+  if (!m) return 330;
+  return (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]));
+}
+
+// ---- Connection pool -------------------------------------------------------------
+const globalForDb = globalThis as unknown as { __rgsPool?: pg.Pool };
+
+function createPool(): pg.Pool {
+  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!connectionString) console.error('db: DATABASE_URL is not set');
+  const pool = new pg.Pool({
+    connectionString,
+    max: Number(process.env.DB_POOL_MAX || 5),
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 15_000,
   });
-  // Inquiry dates are shown in India time whatever time zone the hosting server uses.
-  pool.pool.on('connection', (conn) => {
-    conn.query(`SET time_zone = '${process.env.DB_TIMEZONE || '+05:30'}'`);
-  });
+  pool.on('error', (e) => console.error('db pool:', e.message));
   return pool;
 }
 
 // One pool per server process (survives hot reloads in development).
-export const pool: Pool = globalForDb.__rgsPool ?? (globalForDb.__rgsPool = createPool());
+export const pool: pg.Pool = globalForDb.__rgsPool ?? (globalForDb.__rgsPool = createPool());
 
-/** SELECT → rows. Values are escaped by the driver (`?` placeholders). */
+/** Turn MySQL-style `?` placeholders into PostgreSQL `$1, $2, …` (ignoring any inside quoted text). */
+function toPg(sql: string): string {
+  let n = 0;
+  let out = '';
+  let quote: string | null = null;
+  for (const ch of sql) {
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else if (ch === '?') {
+      out += '$' + ++n;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/** SELECT → rows. Values are sent separately from the SQL (`?` placeholders). */
 export async function query<T = Row>(sql: string, params: unknown[] = []): Promise<T[]> {
-  const [rows] = await pool.query(sql, params);
-  return rows as T[];
+  const res = await pool.query(toPg(sql), params);
+  return res.rows as T[];
 }
 
 export async function queryOne<T = Row>(sql: string, params: unknown[] = []): Promise<T | null> {
@@ -38,13 +76,13 @@ export async function queryOne<T = Row>(sql: string, params: unknown[] = []): Pr
   return rows[0] ?? null;
 }
 
-/** INSERT / UPDATE / DELETE → result header (insertId, affectedRows). */
-export async function execute(sql: string, params: unknown[] = []): Promise<ResultSetHeader> {
-  const [res] = await pool.query(sql, params);
-  return res as ResultSetHeader;
+/** INSERT / UPDATE / DELETE → number of affected rows. */
+export async function execute(sql: string, params: unknown[] = []): Promise<ExecResult> {
+  const res = await pool.query(toPg(sql), params);
+  return { affectedRows: res.rowCount ?? 0 };
 }
 
-/** MariaDB returns JSON columns as text, MySQL as parsed values — accept both. */
+/** JSONB columns come back already parsed; older data may still be text — accept both. */
 export function parseJson<T>(value: unknown, fallback: T): T {
   if (value == null || value === '') return fallback;
   if (typeof value === 'string') {
@@ -57,7 +95,7 @@ export function parseJson<T>(value: unknown, fallback: T): T {
   return value as T;
 }
 
-/** Escape LIKE wildcards in user input. */
+/** Escape LIKE wildcards in user input (use with ILIKE for case-insensitive search). */
 export function likeTerm(q: string): string {
   return '%' + q.replace(/[\\%_]/g, (c) => '\\' + c) + '%';
 }

@@ -106,7 +106,7 @@ export async function searchProducts(opts: {
     args.push(opts.categoryId);
   }
   if (opts.q) {
-    where.push('(p.name LIKE ? OR p.short_description LIKE ? OR c.name LIKE ?)');
+    where.push('(p.name ILIKE ? OR p.short_description ILIKE ? OR c.name ILIKE ?)');
     const like = likeTerm(opts.q);
     args.push(like, like, like);
   }

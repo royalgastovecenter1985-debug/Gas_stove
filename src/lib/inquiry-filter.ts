@@ -10,7 +10,7 @@ export function inquiryFilter(statusRaw: string, qRaw: string) {
   const args: unknown[] = [];
   if (status) { where.push('status = ?'); args.push(status); }
   if (q) {
-    where.push('(name LIKE ? OR phone LIKE ? OR email LIKE ? OR product LIKE ? OR city LIKE ? OR message LIKE ?)');
+    where.push('(name ILIKE ? OR phone ILIKE ? OR email ILIKE ? OR product ILIKE ? OR city ILIKE ? OR message ILIKE ?)');
     const like = likeTerm(q);
     args.push(like, like, like, like, like, like);
   }

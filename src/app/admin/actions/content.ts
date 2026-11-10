@@ -167,7 +167,7 @@ export async function toggleActive(fd: FormData): Promise<void> {
   await requireAdmin();
   const table = String(fd.get('table'));
   if (!TOGGLE_TABLES[table]) redirect('/admin');
-  await execute(`UPDATE \`${table}\` SET is_active = 1 - is_active WHERE id = ?`, [int(fd, 'id')]);
+  await execute(`UPDATE ${table} SET is_active = 1 - is_active WHERE id = ?`, [int(fd, 'id')]);
   redirect(TOGGLE_TABLES[table]);
 }
 

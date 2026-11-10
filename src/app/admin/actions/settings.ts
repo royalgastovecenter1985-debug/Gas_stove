@@ -11,7 +11,7 @@ import { deleteUpload, isFile, savePdf, saveImage, UploadError } from '@/lib/upl
 
 async function putSetting(key: string, value: string, label: string | null = null, group = 'general') {
   await execute(
-    'INSERT INTO settings (`key`, `value`, `label`, `group`) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
+    'INSERT INTO settings ("key", "value", "label", "group") VALUES (?,?,?,?) ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value"',
     [key, value, label, group],
   );
 }

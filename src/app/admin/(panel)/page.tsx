@@ -14,7 +14,7 @@ export default async function Dashboard() {
       (SELECT COUNT(*) FROM categories) AS categories,
       (SELECT COUNT(*) FROM certificates) AS certificates,
       (SELECT COUNT(*) FROM inquiries WHERE status = 'new') AS new_inquiries,
-      (SELECT COUNT(*) FROM inquiries WHERE created_at >= CURDATE() - INTERVAL 7 DAY) AS week_inquiries`),
+      (SELECT COUNT(*) FROM inquiries WHERE created_at >= CURRENT_DATE - INTERVAL '7 days') AS week_inquiries`),
     query<InquiryRowData>('SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 8'),
     getSettings(),
   ]);

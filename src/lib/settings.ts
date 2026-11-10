@@ -14,7 +14,7 @@ const DEFAULTS: Settings = {
 export const getSettings = cache(async (): Promise<Settings> => {
   const out: Settings = { ...DEFAULTS };
   try {
-    const rows = await query<{ key: string; value: string | null }>('SELECT `key`, `value` FROM settings');
+    const rows = await query<{ key: string; value: string | null }>('SELECT "key", "value" FROM settings');
     for (const r of rows) out[r.key] = r.value ?? '';
   } catch (e) {
     console.error('settings:', e);

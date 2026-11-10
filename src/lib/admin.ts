@@ -16,7 +16,7 @@ export async function uniqueSlug(table: 'products' | 'categories', base: string,
   const slug = slugify(base);
   for (let n = 1; ; n++) {
     const tryS = n === 1 ? slug : `${slug}-${n}`;
-    const row = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM \`${table}\` WHERE slug = ? AND id <> ?`, [tryS, ignoreId]);
+    const row = await queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table} WHERE slug = ? AND id <> ?`, [tryS, ignoreId]);
     if (Number(row?.n) === 0) return tryS;
   }
 }

@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // Self-contained server bundle in .next/standalone (see README → Deploying).
   output: 'standalone',
   poweredByHeader: false,
-  serverExternalPackages: ['sharp', 'mysql2'],
+  serverExternalPackages: ['sharp', 'pg'],
   // Uploads and sources are read from disk at runtime; never copy them into the server bundle.
   // (public/ is copied by `npm run build` — see the postbuild script.)
   outputFileTracingExcludes: {
