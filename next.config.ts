@@ -1,6 +1,12 @@
 import type { NextConfig } from 'next';
 
+// Admin uploads go to Vercel Blob when its token is present (Vercel has no permanent disk).
+// The store's public address is derived from the token's store id; it is not secret (it is in every file URL).
+const blobStore = /^vercel_blob_rw_([a-z0-9]+)_/i.exec(process.env.BLOB_READ_WRITE_TOKEN || '')?.[1];
+const UPLOADS_URL = (process.env.UPLOADS_PUBLIC_URL || (blobStore ? `https://${blobStore.toLowerCase()}.public.blob.vercel-storage.com` : '')).replace(/\/+$/, '');
+
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_UPLOADS_URL: UPLOADS_URL },
   // Self-contained server bundle in .next/standalone (see README → Deploying).
   output: 'standalone',
   poweredByHeader: false,

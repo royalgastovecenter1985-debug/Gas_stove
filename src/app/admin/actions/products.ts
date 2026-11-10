@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { int, str, uniqueSlug, withFlash, type FormState } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
 import { execute, parseJson, queryOne } from '@/lib/db';
-import { deleteUpload, isFile, saveImage, UploadError } from '@/lib/uploads';
+import { deleteUpload, isFile, readUploads, saveImage, UploadError } from '@/lib/uploads';
 
 const MAX_PRODUCT_IMAGES = 15;
 
@@ -14,8 +14,10 @@ const MAX_PRODUCT_IMAGES = 15;
  *   newImages the uploaded files referenced by "new:<index>"
  * Existing images left out of `order` are deleted from disk after saving.
  */
-export async function saveProduct(_prev: FormState, fd: FormData): Promise<FormState> {
+export async function saveProduct(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
+  const fd = await readUploads(form);
+  if (!fd) return { error: 'An uploaded file could not be read. Please choose it again and save.' };
   const id = int(fd, 'id');
   const name = str(fd, 'name', 180);
   const categoryId = int(fd, 'category_id');

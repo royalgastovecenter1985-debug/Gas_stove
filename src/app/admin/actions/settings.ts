@@ -7,7 +7,7 @@ import { execute, queryOne } from '@/lib/db';
 import { EMAIL_RE } from '@/lib/format';
 import { ABOUT_DEFAULT, ABOUT_ICONS, ABOUT_KEY, FILE_SETTINGS, SETTINGS, type AboutContent } from '@/lib/settings-schema';
 import { getSettings } from '@/lib/settings';
-import { deleteUpload, isFile, savePdf, saveImage, UploadError } from '@/lib/uploads';
+import { deleteUpload, isFile, readUploads, savePdf, saveImage, UploadError } from '@/lib/uploads';
 
 async function putSetting(key: string, value: string, label: string | null = null, group = 'general') {
   await execute(
@@ -18,8 +18,10 @@ async function putSetting(key: string, value: string, label: string | null = nul
 
 /* ---------------- Website settings ---------------- */
 
-export async function saveSettings(_prev: FormState, fd: FormData): Promise<FormState> {
+export async function saveSettings(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
+  const fd = await readUploads(form);
+  if (!fd) return { error: 'An uploaded file could not be read. Please choose it again and save.' };
   const errors: string[] = [];
   const values: [string, string, string | null, string][] = [];
 
@@ -82,8 +84,10 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
 
 /* ---------------- About page content ---------------- */
 
-export async function saveAbout(_prev: FormState, fd: FormData): Promise<FormState> {
+export async function saveAbout(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
+  const fd = await readUploads(form);
+  if (!fd) return { error: 'An uploaded file could not be read. Please choose it again and save.' };
   const s = await getSettings();
   let current: AboutContent = ABOUT_DEFAULT;
   try { current = { ...ABOUT_DEFAULT, ...(s[ABOUT_KEY] ? JSON.parse(s[ABOUT_KEY]) : {}) }; } catch { /* keep defaults */ }

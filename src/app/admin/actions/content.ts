@@ -5,14 +5,16 @@ import { int, str, uniqueSlug, withFlash, type FormState } from '@/lib/admin';
 import { requireAdmin } from '@/lib/auth';
 import { execute, queryOne } from '@/lib/db';
 import { INQUIRY_STATUSES } from '@/lib/format';
-import { deleteUpload, isFile, saveImage, saveVideo, UploadError } from '@/lib/uploads';
+import { deleteUpload, isFile, readUploads, saveImage, saveVideo, UploadError } from '@/lib/uploads';
 
 const uploadError = (e: unknown): FormState => ({ error: e instanceof UploadError ? e.message : 'Could not save the file. Please try again.' });
 
 /* ---------------- Categories ---------------- */
 
-export async function saveCategory(_prev: FormState, fd: FormData): Promise<FormState> {
+export async function saveCategory(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
+  const fd = await readUploads(form);
+  if (!fd) return { error: 'An uploaded file could not be read. Please choose it again and save.' };
   const id = int(fd, 'id');
   const name = str(fd, 'name', 120);
   if (!name) return { error: 'Category name is required.' };
@@ -52,8 +54,10 @@ export async function deleteCategory(fd: FormData): Promise<void> {
 
 /* ---------------- Certificates ---------------- */
 
-export async function saveCertificate(_prev: FormState, fd: FormData): Promise<FormState> {
+export async function saveCertificate(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
+  const fd = await readUploads(form);
+  if (!fd) return { error: 'An uploaded file could not be read. Please choose it again and save.' };
   const id = int(fd, 'id');
   const title = str(fd, 'title', 160);
   if (!title) return { error: 'Certificate title is required.' };
@@ -110,8 +114,10 @@ export async function deleteTestimonial(fd: FormData): Promise<void> {
 
 /* ---------------- Reels ---------------- */
 
-export async function saveReel(_prev: FormState, fd: FormData): Promise<FormState> {
+export async function saveReel(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
+  const fd = await readUploads(form);
+  if (!fd) return { error: 'An uploaded file could not be read. Please choose it again and save.' };
   const id = int(fd, 'id');
   const title = str(fd, 'title', 160);
   const link = str(fd, 'link', 255);

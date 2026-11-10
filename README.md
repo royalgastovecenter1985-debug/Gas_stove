@@ -98,10 +98,15 @@ Build on the same OS type as the server (for example, build on Linux for a Linux
 
 ### Uploads
 
-Admin uploads are stored in `UPLOAD_DIR` (default `./storage/uploads`) and served at
-`/assets/uploads/...`, the same URLs the PHP site used. On first deploy, **copy the current
-`storage/uploads/` folder** (certificate + reels) into your `UPLOAD_DIR`.
-Back up `UPLOAD_DIR` together with the database.
+**On Vercel (with `BLOB_READ_WRITE_TOKEN`):** uploads are stored in Vercel Blob, at the same
+`assets/uploads/...` paths that are saved in the database, and pages link to the Blob URLs directly
+(old `/assets/uploads/...` links redirect there). The admin's browser uploads each file straight to
+Blob, so photos and videos larger than Vercel's ~4.5 MB request limit work. The Blob store must be
+**Public**. Copy existing files once with `node --env-file=.env.local scripts/upload-storage-to-blob.mjs`.
+
+**On your own server (no Blob token):** uploads are stored in `UPLOAD_DIR` (default `./storage/uploads`)
+and served at `/assets/uploads/...`. On first deploy, **copy the current `storage/uploads/` folder**
+(certificate + reels) into your `UPLOAD_DIR`. Back up `UPLOAD_DIR` together with the database.
 
 ### Example: VPS with PM2 + Nginx
 

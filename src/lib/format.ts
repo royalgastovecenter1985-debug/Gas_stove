@@ -2,10 +2,16 @@
 
 export const BUSINESS = 'Royal Gas Stove Center';
 
-/** Public URL for a stored path: "assets/…" → "/assets/…"; full URLs pass through. */
+/** Vercel Blob address of admin uploads, set at build time in next.config.ts ('' = served by this server). */
+export const UPLOADS_URL = process.env.NEXT_PUBLIC_UPLOADS_URL || '';
+
+/** Public URL for a stored path: "assets/…" → "/assets/…" (uploads → Blob when used); full URLs pass through. */
 export function imgSrc(path: string | null | undefined): string {
   const p = path || 'assets/img/placeholder.svg';
-  return /^https?:\/\//i.test(p) ? p : '/' + p.replace(/^\/+/, '');
+  if (/^https?:\/\//i.test(p)) return p;
+  const clean = p.replace(/^\/+/, '');
+  if (UPLOADS_URL && clean.startsWith('assets/uploads/')) return `${UPLOADS_URL}/${clean}`;
+  return '/' + clean;
 }
 
 export function telLink(phone: string): string {

@@ -2,8 +2,49 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 
+import { upload } from '@vercel/blob/client';
+import { UPLOADS_URL } from '@/lib/format';
+
 export type FormState = { error?: string; errors?: string[]; ok?: string } | null;
 type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
+
+const isRealFile = (v: FormDataEntryValue): v is File => typeof v !== 'string' && v.size > 0;
+const hasFiles = (fd: FormData) => [...fd.values()].some(isRealFile);
+
+/**
+ * On Vercel a request can carry only ~4.5 MB, so each chosen file is first uploaded straight to
+ * Vercel Blob from the browser and the form sends "blob:<url>" in its place (the server action
+ * reads it back — see resolveUploads). Order of repeated fields (several photos) is kept.
+ */
+async function uploadFilesToBlob(fd: FormData, onStatus: (msg: string) => void): Promise<FormData> {
+  const entries = [...fd.entries()];
+  const files = entries.map(([, v]) => v).filter(isRealFile);
+  const loaded = new Map<File, number>();
+  const total = files.reduce((a, f) => a + f.size, 0);
+  const report = () => {
+    const done = [...loaded.values()].reduce((a, b) => a + b, 0);
+    onStatus(`Uploading ${files.length > 1 ? `${files.length} files` : 'file'}… ${Math.min(99, Math.round((done / total) * 100))}%`);
+  };
+  report();
+  const urls = new Map<File, string>();
+  await Promise.all(
+    files.map(async (file) => {
+      const safe = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(-80) || 'upload';
+      const blob = await upload(`tmp/${safe}`, file, {
+        access: 'public',
+        handleUploadUrl: '/admin/upload',
+        contentType: file.type || undefined,
+        multipart: file.size > 8 * 1024 * 1024,
+        onUploadProgress: ({ loaded: n }) => { loaded.set(file, n); report(); },
+      });
+      urls.set(file, blob.url);
+    }),
+  );
+  onStatus('Saving…');
+  const out = new FormData();
+  for (const [k, v] of entries) out.append(k, isRealFile(v) ? `blob:${urls.get(v)}` : v);
+  return out;
+}
 
 /**
  * Admin form bound to a Server Action. Shows returned errors and keeps what was typed
@@ -18,6 +59,8 @@ export function ActionForm(props: {
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(props.action, null);
   const [pending, startTransition] = useTransition();
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const ref = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -28,18 +71,32 @@ export function ActionForm(props: {
     <form
       ref={ref}
       className={props.className}
-      aria-busy={pending}
-      onSubmit={(e) => {
+      aria-busy={pending || !!uploading}
+      onSubmit={async (e) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
+        let fd = new FormData(e.currentTarget);
         props.prepare?.(fd);
+        setUploadError(null);
+        if (UPLOADS_URL && hasFiles(fd)) {
+          try {
+            fd = await uploadFilesToBlob(fd, setUploading);
+          } catch (err) {
+            setUploadError(`Upload failed: ${err instanceof Error ? err.message : 'please try again.'}`);
+            ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          } finally {
+            setUploading(null);
+          }
+        }
         startTransition(() => formAction(fd));
       }}
     >
+      {uploadError && <div className="alert alert--err span-all">{uploadError}</div>}
       {state?.error && <div className="alert alert--err span-all">{state.error}</div>}
       {state?.errors?.map((x) => <div key={x} className="alert alert--err span-all">{x}</div>)}
       {state?.ok && <div className="alert alert--ok span-all">{state.ok}</div>}
-      <fieldset disabled={pending} className="plain-fieldset">{props.children}</fieldset>
+      {uploading && <div className="alert span-all" role="status">{uploading}</div>}
+      <fieldset disabled={pending || !!uploading} className="plain-fieldset">{props.children}</fieldset>
     </form>
   );
 }

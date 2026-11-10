@@ -3,14 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/public-manifest.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/public-manifest.mjs",
     "build": "next build",
     "postbuild": "node scripts/postbuild.mjs",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "node scripts/public-manifest.mjs && tsc --noEmit"
   },
   "dependencies": {
+    "@vercel/blob": "^2.9.0",
     "bcryptjs": "^3.0.3",
     "next": "^16.4.6",
     "nodemailer": "^10.5.0",
